@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Ular 4 Bird - Neon Snake</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Orbitron', sans-serif;
+            background-color: #050505;
+            color: #fff;
+            overflow: hidden; /* Prevent scrolling on mobile */
+            touch-action: none; /* Better touch control handling */
+            background-image: 
+                linear-gradient(rgba(20, 20, 20, 0.8) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(20, 20, 20, 0.8) 1px, transparent 1px);
+            background-size: 30px 30px;
+        }
+
+        .neon-text {
+            text-shadow: 
+                0 0 5px #fff,
+                0 0 10px #fff,
+                0 0 20px var(--neon-color, #0ff),
+                0 0 40px var(--neon-color, #0ff);
+        }
+
+        .neon-border {
+            box-shadow: 
+                0 0 5px var(--neon-color, #0ff),
+                inset 0 0 5px var(--neon-color, #0ff);
+            border: 2px solid var(--neon-color, #0ff);
+        }
+
+        .color-option {
+            transition: all 0.2s ease;
+        }
+        .color-option.selected {
+            transform: scale(1.2);
+            box-shadow: 0 0 15px currentColor;
+        }
+
+        #game-canvas {
+            background: rgba(10, 10, 15, 0.9);
+            border-radius: 10px;
+            image-rendering: pixelated;
+        }
+
+        .btn-neon {
+            background: transparent;
+            color: #fff;
+            border: 2px solid var(--neon-color, #39ff14);
+            box-shadow: 0 0 10px var(--neon-color, #39ff14), inset 0 0 10px var(--neon-color, #39ff14);
+            transition: all 0.3s;
+        }
+        
+        .btn-neon:hover, .btn-neon:active {
+            background: var(--neon-color, #39ff14);
+            color: #000;
+            box-shadow: 0 0 20px var(--neon-color, #39ff14), inset 0 0 20px var(--neon-color, #39ff14);
+        }
+
+        /* Mobile D-Pad */
+        .d-pad-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        .d-pad-btn:active {
+            background: rgba(255, 255, 255, 0.3);
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        .animate-pulse-fast {
+            animation: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen">
+
+    <!-- Start Screen Overlay -->
+    <div id="start-screen" class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-black/90 backdrop-blur-sm transition-opacity duration-500">
+        <h1 class="text-5xl md:text-6xl font-black mb-2 neon-text text-center tracking-wider" style="--neon-color: #ff00ff;">ULAR 4 BIRD</h1>
+        <p class="mb-8 text-gray-400 tracking-widest text-sm md:text-base">NEON EDITION</p>
+
+        <div class="bg-gray-900/80 p-8 rounded-2xl neon-border w-11/12 max-w-md" style="--neon-color: #0ff;">
+            <div class="mb-6">
+                <label for="player-name" class="block text-sm font-bold mb-2 text-cyan-400">NAMA PLAYER:</label>
+                <input type="text" id="player-name" placeholder="Masukkan nama..." class="w-full bg-black border border-cyan-500 rounded p-3 text-white focus:outline-none focus:border-cyan-300 focus:shadow-[0_0_10px_#0ff]" maxlength="15">
+            </div>
+
+            <div class="mb-8">
+                <label class="block text-sm font-bold mb-3 text-cyan-400">WARNA ULAR:</label>
+                <div class="flex justify-between px-2" id="color-picker">
+                    <!-- Color Options -->
+                    <div class="color-option w-10 h-10 rounded-full cursor-pointer selected" style="background-color: #39ff14; color: #39ff14;" data-color="#39ff14"></div>
+                    <div class="color-option w-10 h-10 rounded-full cursor-pointer" style="background-color: #00ffff; color: #00ffff;" data-color="#00ffff"></div>
+                    <div class="color-option w-10 h-10 rounded-full cursor-pointer" style="background-color: #ff00ff; color: #ff00ff;" data-color="#ff00ff"></div>
+                    <div class="color-option w-10 h-10 rounded-full cursor-pointer" style="background-color: #ffdf00; color: #ffdf00;" data-color="#ffdf00"></div>
+                </div>
+            </div>
+
+            <button id="btn-start" class="btn-neon w-full py-3 rounded-lg text-xl font-bold uppercase tracking-wider" style="--neon-color: #0ff;">
+                START GAME
+            </button>
+        </div>
+        
+        <div class="mt-6 text-xs text-gray-500 text-center max-w-sm px-4">
+            Aturan: Makan <span class="text-red-500 font-bold">Buah (Merah)</span> untuk panjang. <br> Awas <span class="text-purple-500 font-bold">Bom (Ungu)</span> bikin pendek!<br>Tembus dinding bisa. Tabrak ekor mati!
+        </div>
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="game-over-screen" class="absolute inset-0 z-40 flex flex-col items-center justify-center bg-black/80 backdrop-blur-md hidden transition-opacity duration-300">
+        <h2 class="text-6xl font-black mb-4 neon-text text-red-500" style="--neon-color: #ff0000;">GAME OVER</h2>
+        <p class="text-2xl mb-2 text-white"><span id="go-name" class="font-bold text-cyan-400">Player</span></p>
+        <p class="text-3xl mb-8">Score: <span id="go-score" class="font-bold text-yellow-400">0</span></p>
+        <button id="btn-restart" class="btn-neon px-8 py-3 rounded-lg text-xl font-bold uppercase tracking-wider" style="--neon-color: #ff00ff;">
+            MAIN LAGI
+        </button>
+    </div>
+
+    <!-- Main Game UI -->
+    <div class="w-full max-w-lg px-4 flex flex-col items-center">
+        <!-- HUD -->
+        <div class="w-full flex justify-between items-center mb-4 px-2">
+            <div class="flex items-center gap-2">
+                <div class="w-3 h-3 rounded-full animate-pulse-fast" id="status-indicator" style="background-color: #39ff14; box-shadow: 0 0 10px #39ff14;"></div>
+                <span id="hud-name" class="text-lg font-bold text-cyan-300">Player</span>
+            </div>
+            <div class="text-2xl font-black neon-text" style="--neon-color: #ffdf00;">
+                <span class="text-sm text-gray-300 font-normal mr-1 tracking-widest">SCORE</span>
+                <span id="hud-score">0</span>
+            </div>
+        </div>
+
+        <!-- Canvas Container -->
+        <div class="relative neon-border p-1 rounded-xl bg-gray-900" id="canvas-container" style="--neon-color: #39ff14;">
+            <canvas id="game-canvas" width="400" height="400" class="block"></canvas>
+        </div>
+
+        <!-- Mobile Controls (Visible only on smaller screens) -->
+        <div class="mt-6 w-full max-w-[250px] grid grid-cols-3 grid-rows-3 gap-2 md:hidden">
+            <div class="col-start-2 row-start-1 d-pad-btn h-14" id="btn-up">↑</div>
+            <div class="col-start-1 row-start-2 d-pad-btn h-14" id="btn-left">←</div>
+            <div class="col-start-3 row-start-2 d-pad-btn h-14" id="btn-right">→</div>
+            <div class="col-start-2 row-start-3 d-pad-btn h-14" id="btn-down">↓</div>
+        </div>
+    </div>
+
+    <script>
+        // --- GAME CONSTANTS & VARIABLES ---
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Grid setup
+        const GRID_SIZE = 20; // 20x20 grid
+        const TILE_COUNT = canvas.width / GRID_SIZE; // 20 tiles
+        
+        let gameLoop;
+        let speed = 120; // ms per frame
+        let isPlaying = false;
+        
+        // State
+        let playerName = "ANON";
+        let snakeColor = "#39ff14";
+        let score = 0;
+        
+        // Snake entity
+        let snake = [];
+        let dx = 1;
+        let dy = 0;
+        
+        // Items
+        let fruit = { x: 0, y: 0 };
+        let bomb = { x: 0, y: 0 };
+
+        // --- AUDIO SETUP (Tone.js) ---
+        // We use synth for eating fruit, membrane for bomb, and a sequence for BGM
+        let synth, bombSynth, gameOverSynth, bgmPart;
+        let audioInitialized = false;
+
+        function initAudio() {
+            if(audioInitialized) return;
+            
+            // Fruit sound: Bright, plucky
+            synth = new Tone.PolySynth(Tone.Synth, {
+                oscillator: { type: "square" },
+                envelope: { attack: 0.01, decay: 0.1, sustain: 0, release: 0.1 }
+            }).toDestination();
+            synth.volume.value = -10;
+
+            // Bomb sound: Low thud/noise
+            bombSynth = new Tone.MembraneSynth().toDestination();
+            bombSynth.volume.value = -5;
+
+            // Game over sound
+            gameOverSynth = new Tone.Synth({
+                oscillator: { type: "sawtooth" },
+                envelope: { attack: 0.1, decay: 0.2, sustain: 0.2, release: 2 }
+            }).toDestination();
+            gameOverSynth.volume.value = -8;
+
+            // BGM: Minimal techno/cyberpunk bassline
+            const bassline = new Tone.MonoSynth({
+                oscillator: { type: "square" },
+                filter: { Q: 6, type: "lowpass", rolloff: -24 },
+                envelope: { attack: 0.05, decay: 0.3, sustain: 0.1, release: 1 },
+                filterEnvelope: { attack: 0.06, decay: 0.2, sustain: 0.5, release: 2, baseFrequency: 100, octaves: 3 }
+            }).toDestination();
+            bassline.volume.value = -18; // Keep it quiet
+
+            const notes = ["C2", null, "C2", "D#2", "C2", null, "F2", "D#2"];
+            bgmPart = new Tone.Sequence((time, note) => {
+                if (note) bassline.triggerAttackRelease(note, "8n", time);
+            }, notes, "8n");
+
+            Tone.Transport.bpm.value = 130;
+            audioInitialized = true;
+        }
+
+        function playSound(type) {
+            if (!audioInitialized) return;
+            if (type === 'eat') {
+                synth.triggerAttackRelease(["C5", "E5"], "16n");
+            } else if (type === 'bomb') {
+                bombSynth.triggerAttackRelease("C1", "8n");
+            } else if (type === 'die') {
+                gameOverSynth.triggerAttackRelease("A1", "2n");
+                setTimeout(() => gameOverSynth.triggerAttackRelease("E1", "1n"), 300);
+            }
+        }
+
+        // --- UI & INTERACTIONS ---
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const colorOptions = document.querySelectorAll('.color-option');
+        const inputName = document.getElementById('player-name');
+        const hudName = document.getElementById('hud-name');
+        const hudScore = document.getElementById('hud-score');
+        const canvasContainer = document.getElementById('canvas-container');
+        const statusIndicator = document.getElementById('status-indicator');
+
+        // Color Picker Logic
+        colorOptions.forEach(option => {
+            option.addEventListener('click', () => {
+                colorOptions.forEach(opt => opt.classList.remove('selected'));
+                option.classList.add('selected');
+                snakeColor = option.dataset.color;
+                
+                // Update UI accents based on chosen color
+                canvasContainer.style.setProperty('--neon-color', snakeColor);
+                document.getElementById('btn-start').style.setProperty('--neon-color', snakeColor);
+                statusIndicator.style.backgroundColor = snakeColor;
+                statusIndicator.style.boxShadow = `0 0 10px ${snakeColor}`;
+            });
+        });
+
+        document.getElementById('btn-start').addEventListener('click', async () => {
+            await startGameUI();
+        });
+
+        document.getElementById('btn-restart').addEventListener('click', () => {
+            gameOverScreen.classList.add('hidden');
+            resetGame();
+        });
+
+        async function startGameUI() {
+            playerName = inputName.value.trim().toUpperCase() || "ANON";
+            hudName.textContent = playerName;
+            hudName.style.color = snakeColor;
+            
+            // Audio context requires user gesture
+            await Tone.start();
+            initAudio();
+
+            startScreen.classList.add('opacity-0');
+            setTimeout(() => {
+                startScreen.classList.add('hidden');
+                resetGame();
+            }, 500);
+        }
+
+        // --- GAME LOGIC ---
+
+        function resetGame() {
+            // Initial Snake (Length 4)
+            snake = [
+                {x: 10, y: 10},
+                {x: 9, y: 10},
+                {x: 8, y: 10},
+                {x: 7, y: 10}
+            ];
+            dx = 1;
+            dy = 0;
+            score = 0;
+            speed = 120;
+            updateScore(0);
+            
+            spawnFruit();
+            spawnBomb();
+
+            isPlaying = true;
+            if (audioInitialized) {
+                Tone.Transport.start();
+                bgmPart.start(0);
+            }
+            
+            clearTimeout(gameLoop);
+            tick();
+        }
+
+        function spawnFruit() {
+            let valid = false;
+            while (!valid) {
+                fruit.x = Math.floor(Math.random() * TILE_COUNT);
+                fruit.y = Math.floor(Math.random() * TILE_COUNT);
+                // Prevent spawning on snake
+                valid = !snake.some(segment => segment.x === fruit.x && segment.y === fruit.y);
+                // Prevent spawning exactly on bomb
+                if (fruit.x === bomb.x && fruit.y === bomb.y) valid = false;
+            }
+        }
+
+        function spawnBomb() {
+            // Chance to not spawn bomb, or respawn it somewhere else
+            let valid = false;
+            while (!valid) {
+                bomb.x = Math.floor(Math.random() * TILE_COUNT);
+                bomb.y = Math.floor(Math.random() * TILE_COUNT);
+                valid = !snake.some(segment => segment.x === bomb.x && segment.y === bomb.y);
+                if (bomb.x === fruit.x && bomb.y === fruit.y) valid = false;
+                
+                // Don't spawn bomb too close to snake head (give player time to react)
+                let head = snake[0];
+                let dist = Math.abs(head.x - bomb.x) + Math.abs(head.y - bomb.y);
+                if (dist < 4) valid = false; 
+            }
+        }
+
+        function updateScore(val) {
+            score = Math.max(0, val); // Prevent negative score visually if wanted
+            hudScore.textContent = score;
+            // Increase speed slightly as score goes up
+            speed = Math.max(60, 120 - (score * 2)); 
+        }
+
+        function gameOver() {
+            isPlaying = false;
+            playSound('die');
+            if (audioInitialized) {
+                Tone.Transport.stop();
+                bgmPart.stop();
+            }
+            
+            document.getElementById('go-name').textContent = playerName;
+            document.getElementById('go-score').textContent = score;
+            
+            gameOverScreen.classList.remove('hidden');
+            gameOverScreen.classList.remove('opacity-0');
+        }
+
+        function tick() {
+            if (!isPlaying) return;
+            
+            update();
+            draw();
+            
+            gameLoop = setTimeout(tick, speed);
+        }
+
+        function update() {
+            // Calculate new head position
+            let headX = snake[0].x + dx;
+            let headY = snake[0].y + dy;
+
+            // Wall Pass-through (Wrap around)
+            if (headX < 0) headX = TILE_COUNT - 1;
+            else if (headX >= TILE_COUNT) headX = 0;
+            
+            if (headY < 0) headY = TILE_COUNT - 1;
+            else if (headY >= TILE_COUNT) headY = 0;
+
+            const newHead = { x: headX, y: headY };
+
+            // Collision with Self
+            // Check if newHead matches any existing body part
+            if (snake.some(segment => segment.x === headX && segment.y === headY)) {
+                gameOver();
+                return;
+            }
+
+            snake.unshift(newHead); // Add new head
+
+            // Check Fruit Collision
+            if (headX === fruit.x && headY === fruit.y) {
+                playSound('eat');
+                updateScore(score + 10);
+                spawnFruit();
+                // Randomly respawn bomb occasionally to keep it fresh
+                if (Math.random() > 0.5) spawnBomb();
+                // Note: We don't pop the tail, so snake grows
+            } 
+            // Check Bomb Collision
+            else if (headX === bomb.x && headY === bomb.y) {
+                playSound('bomb');
+                spawnBomb();
+                // Penalty: Remove tail (the one added automatically by move) + extra segment
+                snake.pop(); // Remove regular move tail
+                if (snake.length > 1) {
+                    snake.pop(); // Shrink!
+                    updateScore(score - 5);
+                } else {
+                    // Snake length is 1 and ate a bomb -> dead
+                    gameOver();
+                    return;
+                }
+            } 
+            // Normal Move
+            else {
+                snake.pop(); // Remove tail to maintain length
+            }
+        }
+
+        function draw() {
+            // Clear canvas with dark trail effect
+            ctx.fillStyle = "rgba(10, 10, 15, 0.8)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Grid (Subtle)
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
+            ctx.lineWidth = 1;
+            for(let i=0; i<TILE_COUNT; i++) {
+                ctx.beginPath();
+                ctx.moveTo(i * GRID_SIZE, 0);
+                ctx.lineTo(i * GRID_SIZE, canvas.height);
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.moveTo(0, i * GRID_SIZE);
+                ctx.lineTo(canvas.width, i * GRID_SIZE);
+                ctx.stroke();
+            }
+
+            // Draw Fruit (Neon Red)
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = "#ff2a2a";
+            ctx.fillStyle = "#ff2a2a";
+            // Draw as a slight circle inside the grid
+            ctx.beginPath();
+            ctx.arc(
+                fruit.x * GRID_SIZE + GRID_SIZE/2, 
+                fruit.y * GRID_SIZE + GRID_SIZE/2, 
+                GRID_SIZE/2.5, 0, Math.PI * 2
+            );
+            ctx.fill();
+
+            // Draw Bomb (Neon Purple/Danger)
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = "#9d00ff";
+            ctx.fillStyle = "#9d00ff";
+            // Draw as a diamond/spike
+            ctx.beginPath();
+            let cx = bomb.x * GRID_SIZE + GRID_SIZE/2;
+            let cy = bomb.y * GRID_SIZE + GRID_SIZE/2;
+            let size = GRID_SIZE/2.2;
+            ctx.moveTo(cx, cy - size);
+            ctx.lineTo(cx + size, cy);
+            ctx.lineTo(cx, cy + size);
+            ctx.lineTo(cx - size, cy);
+            ctx.closePath();
+            ctx.fill();
+            // Draw inner warning core
+            ctx.fillStyle = "#fff";
+            ctx.shadowBlur = 0;
+            ctx.fillRect(cx - 2, cy - 2, 4, 4);
+
+            // Draw Snake
+            snake.forEach((segment, index) => {
+                ctx.shadowBlur = 10;
+                ctx.shadowColor = snakeColor;
+                ctx.fillStyle = snakeColor;
+                
+                // Make the head slightly brighter/white center
+                if (index === 0) {
+                    ctx.fillStyle = "#ffffff";
+                    ctx.shadowColor = snakeColor;
+                    ctx.shadowBlur = 20;
+                } else {
+                    // Fade opacity towards tail slightly for cool effect
+                    ctx.globalAlpha = 1 - (index / (snake.length * 2));
+                }
+
+                // Draw rounded rectangles for snake body
+                const padding = 1; // Gap between segments
+                ctx.fillRect(
+                    segment.x * GRID_SIZE + padding, 
+                    segment.y * GRID_SIZE + padding, 
+                    GRID_SIZE - padding * 2, 
+                    GRID_SIZE - padding * 2
+                );
+                
+                ctx.globalAlpha = 1.0; // Reset alpha
+            });
+            ctx.shadowBlur = 0; // Reset shadow
+        }
+
+        // --- CONTROLS ---
+
+        let lastInputDirection = { dx: 1, dy: 0 };
+
+        function setDirection(newDx, newDy) {
+            // Prevent 180 degree turns instantly
+            if (newDx !== 0 && lastInputDirection.dx !== 0) return;
+            if (newDy !== 0 && lastInputDirection.dy !== 0) return;
+            
+            dx = newDx;
+            dy = newDy;
+            lastInputDirection = { dx, dy };
+        }
+
+        window.addEventListener('keydown', e => {
+            if (!isPlaying) return;
+            // Prevent default scrolling
+            if(["ArrowUp","ArrowDown","ArrowLeft","ArrowRight"," "].indexOf(e.code) > -1) {
+                e.preventDefault();
+            }
+
+            switch(e.key) {
+                case 'ArrowUp':
+                case 'w':
+                case 'W':
+                    setDirection(0, -1);
+                    break;
+                case 'ArrowDown':
+                case 's':
+                case 'S':
+                    setDirection(0, 1);
+                    break;
+                case 'ArrowLeft':
+                case 'a':
+                case 'A':
+                    setDirection(-1, 0);
+                    break;
+                case 'ArrowRight':
+                case 'd':
+                case 'D':
+                    setDirection(1, 0);
+                    break;
+            }
+        });
+
+        // Mobile D-Pad Control bindings
+        document.getElementById('btn-up').addEventListener('touchstart', (e) => { e.preventDefault(); setDirection(0, -1); });
+        document.getElementById('btn-down').addEventListener('touchstart', (e) => { e.preventDefault(); setDirection(0, 1); });
+        document.getElementById('btn-left').addEventListener('touchstart', (e) => { e.preventDefault(); setDirection(-1, 0); });
+        document.getElementById('btn-right').addEventListener('touchstart', (e) => { e.preventDefault(); setDirection(1, 0); });
+
+        // Touch Swipe functionality as alternative mobile control
+        let touchStartX = 0;
+        let touchStartY = 0;
+
+        canvasContainer.addEventListener('touchstart', function(e) {
+            touchStartX = e.changedTouches[0].screenX;
+            touchStartY = e.changedTouches[0].screenY;
+            e.preventDefault();
+        }, {passive: false});
+
+        canvasContainer.addEventListener('touchend', function(e) {
+            let touchEndX = e.changedTouches[0].screenX;
+            let touchEndY = e.changedTouches[0].screenY;
+            handleSwipe(touchStartX, touchStartY, touchEndX, touchEndY);
+            e.preventDefault();
+        }, {passive: false});
+
+        function handleSwipe(startX, startY, endX, endY) {
+            let diffX = endX - startX;
+            let diffY = endY - startY;
+
+            if (Math.abs(diffX) > Math.abs(diffY)) {
+                // Horizontal Swipe
+                if (Math.abs(diffX) > 20) { // Threshold
+                    if (diffX > 0) setDirection(1, 0); // Right
+                    else setDirection(-1, 0); // Left
+                }
+            } else {
+                // Vertical Swipe
+                if (Math.abs(diffY) > 20) { // Threshold
+                    if (diffY > 0) setDirection(0, 1); // Down
+                    else setDirection(0, -1); // Up
+                }
+            }
+        }
+
+        // Draw initially to show empty board behind menu
+        draw();
+
+    </script>
+</body>
+</html>
